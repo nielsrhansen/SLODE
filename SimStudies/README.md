@@ -8,7 +8,7 @@ All figures from the paper will be deposited in a figures folder.
 Before you run a simulation study, make sure you have installed the 
 packages used within it. This is most easily done by installing the 
 [`tsars` package](https://github.com/nielsrhansen/SLODE) first. 
-This auxilary package is also used for some of the simulations.
+This auxilary package is also used for the simulations.
 
 Some of the simulations are computationally heavy, in particular Study B
 and Study E. For the paper, they were run on a 128 core server using multiple
