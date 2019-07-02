@@ -1,12 +1,22 @@
 Package: tsars
 Type: Package
 Title: Topological Sensitivity Analysis for Reaction Systems
-Version: 0.0.2.0001
-Authors@R: person("Frederik Riis", "Mikkelsen", email = "frm@math.ku.dk", role = c("aut", "cre"))
-Maintainer: <frederikrmikkelsen@gmail.dk>
-Description: Tools for performing topological sensitivity analysis (as described in Babtie et al., PNAS, 2014) 
-    for mass action kinetics type of ode systems.
-License: What license is it under?
+Version: 0.0.3
+Authors@R: c(
+  person("Frederik Vissing", "Mikkelsen", email = "frederikrmikkelsen@gmail.com", role = c("aut")),
+  person("Niels", "Richard Hansen", email = "niels.r.hansen@math.ku.dk", role = c("ctb", "cre"))
+  )
+Description: 
+        This package implements the exhaustive gradient matching method 
+		for mass action kinetics type of ODE systems. This algorithm is very much
+		inspired by the paper Topological Sensitivity Analysis for Systems Biology by
+		Babtie et al., PNAS, (2014), and is used in the paper 
+		Statistical Learning of Ordinary Differential Equation Systems by 
+		Mikkelsen and Hansen, 2019. Installing this package will also install 
+		all packages needed to run the code from that paper, including the 
+		main package, episode, developed for the paper, which implements the 
+		general learning algorithms.
+License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
 Imports:
@@ -15,6 +25,20 @@ Imports:
     nnls (>= 1.4),
     Rcpp (>= 0.12.5),
     RcppArmadillo (>= 0.7.6)
+    reshape,
+    igraph,
+    foreach,
+    doParallel,
+    plyr,
+    ggplot2,
+    grid,
+    gridExtra,
+    grplasso,
+    locfit,
+    fda,
+    xtable,
+    glmnet,
+    episode
 Depends:
     R (>= 3.3.1)
 LinkingTo: Rcpp, RcppArmadillo
