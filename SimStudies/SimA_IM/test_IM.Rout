@@ -1,0 +1,1729 @@
+
+R version 3.5.1 (2018-07-02) -- "Feather Spray"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-redhat-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # test IM
+> rm(list = ls())
+> 
+> source("../ggplot_theme.R")
+> 
+> library(episode)
+> library(ggplot2)
+> library(reshape)
+> library(plyr)
+
+Attaching package: ‘plyr’
+
+The following objects are masked from ‘package:reshape’:
+
+    rename, round_any
+
+> 
+> # ground truth
+> d <- 4
+> A <- matrix(
++   c(1, 0, 0, 1,
++     0, 1, 0, 0,
++     0, 1, 0, 0), ncol = 4, byrow = TRUE)
+> B <- matrix(
++   c(0, 1, 0, 0,
++     1, 0, 0, 1,
++     1, 0, 1, 0), ncol = 4, byrow = TRUE)
+> 
+> x0 <- c(10, 2, 2, 10)
+> k <- c(1, 2, 0.75)
+> 
+> m <- mak(A, B, r = reg(reg_type = "scad"))
+> time <- seq(0, 1, by = .0001)
+> traj <- numsolve(o = m, time, x0 = x0, param = list(k = k))
+> 
+> 
+> sub_traj <- traj[1 + 0:100 * 100, ]
+> 
+> ggplot(melt(data.frame(traj), id.vars = "Time"), aes(x = Time, y = value, color = variable)) + geom_line()
+> 
+> 
+> bwds <- seq(0, .6, by = .1)
+> smoother <- function(y_traj) {
++   sapply(bwds, function(bwd) {
++     if (bwd <= 0) {
++       # linear interpolation
++       res <- apply(y_traj[, -1], 2, approx, x = y_traj[, 1], n = max(101, nrow(y_traj)))
++     } else {
++       res <- apply(y_traj[, -1], 2, ksmooth, x = y_traj[, 1], bandwidth = bwd, kernel = "normal", n.points = max(101, nrow(y_traj)))
++     }
++     # reorganise
++     cbind(Time = res[[1]]$x, do.call(cbind, lapply(res, getElement, "y")))
++   }, simplify = FALSE)
++ }
+> 
+> 
+> dattner <- function(x_smooth, y = x_smooth) {
++   # Design
++   des <- imd(m, op = opt(y), x = x_smooth)
++   
++   # Accumulate
++   X <- apply(matrix(t(des$X[[1]]), nrow = length(A)), 1, cumsum)
++   X <- matrix(t(X), ncol = nrow(A), byrow = TRUE)
++   Y <- apply(matrix(des$Y, nrow = d), 1, cumsum)
++   Y <- as.vector(t(Y))
++   
++   lm.fit(x = X, y = Y)$coefficients
++ }
+> 
+> 
+> MLE <- function(y_traj) {
++   rod <- rodeo(x = m, op = opt(y_traj, nlambda = 5, lambda_min_ratio = 0.00001), 
++     x0 = traj[1, -1], params = list(k = rep(0, 3)))
++   setNames(c(rod$params$k[, 5], sum(rod$jerr[2, ])), c(paste0("x", 1:3), "jerr"))
++ }
+> 
+> 
+> 
+> # Simulation setup
+> BB <- 250
+> sigmas <- c(.1, .5, 1)
+> ns <- c(10, 25, 100)
+> 
+> # Noise
+> set.seed(270990)
+> eps <- array(rnorm(max(ns + 1) * d * BB), dim = c(max(ns + 1), d, BB))
+> 
+> 
+> ## IM simulation
+> res <- list()
+> res_MLE <- list()
+> for (i in seq_along(sigmas)) {
++   s <- 0
++   res[[i]] <- apply(eps, 3, function(epsilon) {
++     cat("IM ", i, " ", s <<- s + 1, "\n")
++     # data
++     y <- sub_traj
++     y[, -1] <- y[, -1] + sigmas[i] * epsilon
++     
++     lmfit_n10 <- cbind(data.frame(do.call(rbind, lapply(smoother(y[1 + 0:10 * 10, ]), dattner))), bwd = bwds, n = 10)
++     lmfit_n25 <- cbind(data.frame(do.call(rbind, lapply(smoother(y[1 + 0:25 * 4, ]), dattner))), bwd = bwds, n = 25)
++     lmfit_n100 <- cbind(data.frame(do.call(rbind, lapply(smoother(y), dattner))), bwd = bwds, n = 100)
++     
++     rbind(lmfit_n10, lmfit_n25, lmfit_n100)
++   })
++   
++   s <- 0
++   res_MLE[[i]] <- apply(eps, 3, function(epsilon) {
++     cat("MLE ", i, " ", s <<- s + 1, "\n")
++     # data
++     y <- sub_traj
++     y[, -1] <- y[, -1] + sigmas[i] * epsilon
++ 
++     mle_n10 <- cbind(as.data.frame(matrix(MLE(y[1 + 0:10 * 10, ]), nrow = 1)), n = 10)
++     mle_n25 <- cbind(as.data.frame(matrix(MLE(y[1 + 0:25 * 4, ]), nrow = 1)), n = 25)
++     mle_n100 <- cbind(as.data.frame(matrix(MLE(y), nrow = 1)), n = 100)
++     
++     rbind(mle_n10, mle_n25, mle_n100)
++   })
++   
++ }
+IM  1   1 
+IM  1   2 
+IM  1   3 
+IM  1   4 
+IM  1   5 
+IM  1   6 
+IM  1   7 
+IM  1   8 
+IM  1   9 
+IM  1   10 
+IM  1   11 
+IM  1   12 
+IM  1   13 
+IM  1   14 
+IM  1   15 
+IM  1   16 
+IM  1   17 
+IM  1   18 
+IM  1   19 
+IM  1   20 
+IM  1   21 
+IM  1   22 
+IM  1   23 
+IM  1   24 
+IM  1   25 
+IM  1   26 
+IM  1   27 
+IM  1   28 
+IM  1   29 
+IM  1   30 
+IM  1   31 
+IM  1   32 
+IM  1   33 
+IM  1   34 
+IM  1   35 
+IM  1   36 
+IM  1   37 
+IM  1   38 
+IM  1   39 
+IM  1   40 
+IM  1   41 
+IM  1   42 
+IM  1   43 
+IM  1   44 
+IM  1   45 
+IM  1   46 
+IM  1   47 
+IM  1   48 
+IM  1   49 
+IM  1   50 
+IM  1   51 
+IM  1   52 
+IM  1   53 
+IM  1   54 
+IM  1   55 
+IM  1   56 
+IM  1   57 
+IM  1   58 
+IM  1   59 
+IM  1   60 
+IM  1   61 
+IM  1   62 
+IM  1   63 
+IM  1   64 
+IM  1   65 
+IM  1   66 
+IM  1   67 
+IM  1   68 
+IM  1   69 
+IM  1   70 
+IM  1   71 
+IM  1   72 
+IM  1   73 
+IM  1   74 
+IM  1   75 
+IM  1   76 
+IM  1   77 
+IM  1   78 
+IM  1   79 
+IM  1   80 
+IM  1   81 
+IM  1   82 
+IM  1   83 
+IM  1   84 
+IM  1   85 
+IM  1   86 
+IM  1   87 
+IM  1   88 
+IM  1   89 
+IM  1   90 
+IM  1   91 
+IM  1   92 
+IM  1   93 
+IM  1   94 
+IM  1   95 
+IM  1   96 
+IM  1   97 
+IM  1   98 
+IM  1   99 
+IM  1   100 
+IM  1   101 
+IM  1   102 
+IM  1   103 
+IM  1   104 
+IM  1   105 
+IM  1   106 
+IM  1   107 
+IM  1   108 
+IM  1   109 
+IM  1   110 
+IM  1   111 
+IM  1   112 
+IM  1   113 
+IM  1   114 
+IM  1   115 
+IM  1   116 
+IM  1   117 
+IM  1   118 
+IM  1   119 
+IM  1   120 
+IM  1   121 
+IM  1   122 
+IM  1   123 
+IM  1   124 
+IM  1   125 
+IM  1   126 
+IM  1   127 
+IM  1   128 
+IM  1   129 
+IM  1   130 
+IM  1   131 
+IM  1   132 
+IM  1   133 
+IM  1   134 
+IM  1   135 
+IM  1   136 
+IM  1   137 
+IM  1   138 
+IM  1   139 
+IM  1   140 
+IM  1   141 
+IM  1   142 
+IM  1   143 
+IM  1   144 
+IM  1   145 
+IM  1   146 
+IM  1   147 
+IM  1   148 
+IM  1   149 
+IM  1   150 
+IM  1   151 
+IM  1   152 
+IM  1   153 
+IM  1   154 
+IM  1   155 
+IM  1   156 
+IM  1   157 
+IM  1   158 
+IM  1   159 
+IM  1   160 
+IM  1   161 
+IM  1   162 
+IM  1   163 
+IM  1   164 
+IM  1   165 
+IM  1   166 
+IM  1   167 
+IM  1   168 
+IM  1   169 
+IM  1   170 
+IM  1   171 
+IM  1   172 
+IM  1   173 
+IM  1   174 
+IM  1   175 
+IM  1   176 
+IM  1   177 
+IM  1   178 
+IM  1   179 
+IM  1   180 
+IM  1   181 
+IM  1   182 
+IM  1   183 
+IM  1   184 
+IM  1   185 
+IM  1   186 
+IM  1   187 
+IM  1   188 
+IM  1   189 
+IM  1   190 
+IM  1   191 
+IM  1   192 
+IM  1   193 
+IM  1   194 
+IM  1   195 
+IM  1   196 
+IM  1   197 
+IM  1   198 
+IM  1   199 
+IM  1   200 
+IM  1   201 
+IM  1   202 
+IM  1   203 
+IM  1   204 
+IM  1   205 
+IM  1   206 
+IM  1   207 
+IM  1   208 
+IM  1   209 
+IM  1   210 
+IM  1   211 
+IM  1   212 
+IM  1   213 
+IM  1   214 
+IM  1   215 
+IM  1   216 
+IM  1   217 
+IM  1   218 
+IM  1   219 
+IM  1   220 
+IM  1   221 
+IM  1   222 
+IM  1   223 
+IM  1   224 
+IM  1   225 
+IM  1   226 
+IM  1   227 
+IM  1   228 
+IM  1   229 
+IM  1   230 
+IM  1   231 
+IM  1   232 
+IM  1   233 
+IM  1   234 
+IM  1   235 
+IM  1   236 
+IM  1   237 
+IM  1   238 
+IM  1   239 
+IM  1   240 
+IM  1   241 
+IM  1   242 
+IM  1   243 
+IM  1   244 
+IM  1   245 
+IM  1   246 
+IM  1   247 
+IM  1   248 
+IM  1   249 
+IM  1   250 
+MLE  1   1 
+MLE  1   2 
+MLE  1   3 
+MLE  1   4 
+MLE  1   5 
+MLE  1   6 
+MLE  1   7 
+MLE  1   8 
+MLE  1   9 
+MLE  1   10 
+MLE  1   11 
+MLE  1   12 
+MLE  1   13 
+MLE  1   14 
+MLE  1   15 
+MLE  1   16 
+MLE  1   17 
+MLE  1   18 
+MLE  1   19 
+MLE  1   20 
+MLE  1   21 
+MLE  1   22 
+MLE  1   23 
+MLE  1   24 
+MLE  1   25 
+MLE  1   26 
+MLE  1   27 
+MLE  1   28 
+MLE  1   29 
+MLE  1   30 
+MLE  1   31 
+MLE  1   32 
+MLE  1   33 
+MLE  1   34 
+MLE  1   35 
+MLE  1   36 
+MLE  1   37 
+MLE  1   38 
+MLE  1   39 
+MLE  1   40 
+MLE  1   41 
+MLE  1   42 
+MLE  1   43 
+MLE  1   44 
+MLE  1   45 
+MLE  1   46 
+MLE  1   47 
+MLE  1   48 
+MLE  1   49 
+MLE  1   50 
+MLE  1   51 
+MLE  1   52 
+MLE  1   53 
+MLE  1   54 
+MLE  1   55 
+MLE  1   56 
+MLE  1   57 
+MLE  1   58 
+MLE  1   59 
+MLE  1   60 
+MLE  1   61 
+MLE  1   62 
+MLE  1   63 
+MLE  1   64 
+MLE  1   65 
+MLE  1   66 
+MLE  1   67 
+MLE  1   68 
+MLE  1   69 
+MLE  1   70 
+MLE  1   71 
+MLE  1   72 
+MLE  1   73 
+MLE  1   74 
+MLE  1   75 
+MLE  1   76 
+MLE  1   77 
+MLE  1   78 
+MLE  1   79 
+MLE  1   80 
+MLE  1   81 
+MLE  1   82 
+MLE  1   83 
+MLE  1   84 
+MLE  1   85 
+MLE  1   86 
+MLE  1   87 
+MLE  1   88 
+MLE  1   89 
+MLE  1   90 
+MLE  1   91 
+MLE  1   92 
+MLE  1   93 
+MLE  1   94 
+MLE  1   95 
+MLE  1   96 
+MLE  1   97 
+MLE  1   98 
+MLE  1   99 
+MLE  1   100 
+MLE  1   101 
+MLE  1   102 
+MLE  1   103 
+MLE  1   104 
+MLE  1   105 
+MLE  1   106 
+MLE  1   107 
+MLE  1   108 
+MLE  1   109 
+MLE  1   110 
+MLE  1   111 
+MLE  1   112 
+MLE  1   113 
+MLE  1   114 
+MLE  1   115 
+MLE  1   116 
+MLE  1   117 
+MLE  1   118 
+MLE  1   119 
+MLE  1   120 
+MLE  1   121 
+MLE  1   122 
+MLE  1   123 
+MLE  1   124 
+MLE  1   125 
+MLE  1   126 
+MLE  1   127 
+MLE  1   128 
+MLE  1   129 
+MLE  1   130 
+MLE  1   131 
+MLE  1   132 
+MLE  1   133 
+MLE  1   134 
+MLE  1   135 
+MLE  1   136 
+MLE  1   137 
+MLE  1   138 
+MLE  1   139 
+MLE  1   140 
+MLE  1   141 
+MLE  1   142 
+MLE  1   143 
+MLE  1   144 
+MLE  1   145 
+MLE  1   146 
+MLE  1   147 
+MLE  1   148 
+MLE  1   149 
+MLE  1   150 
+MLE  1   151 
+MLE  1   152 
+MLE  1   153 
+MLE  1   154 
+MLE  1   155 
+MLE  1   156 
+MLE  1   157 
+MLE  1   158 
+MLE  1   159 
+MLE  1   160 
+MLE  1   161 
+MLE  1   162 
+MLE  1   163 
+MLE  1   164 
+MLE  1   165 
+MLE  1   166 
+MLE  1   167 
+MLE  1   168 
+MLE  1   169 
+MLE  1   170 
+MLE  1   171 
+MLE  1   172 
+MLE  1   173 
+MLE  1   174 
+MLE  1   175 
+MLE  1   176 
+MLE  1   177 
+MLE  1   178 
+MLE  1   179 
+MLE  1   180 
+MLE  1   181 
+MLE  1   182 
+MLE  1   183 
+MLE  1   184 
+MLE  1   185 
+MLE  1   186 
+MLE  1   187 
+MLE  1   188 
+MLE  1   189 
+MLE  1   190 
+MLE  1   191 
+MLE  1   192 
+MLE  1   193 
+MLE  1   194 
+MLE  1   195 
+MLE  1   196 
+MLE  1   197 
+MLE  1   198 
+MLE  1   199 
+MLE  1   200 
+MLE  1   201 
+MLE  1   202 
+MLE  1   203 
+MLE  1   204 
+MLE  1   205 
+MLE  1   206 
+MLE  1   207 
+MLE  1   208 
+MLE  1   209 
+MLE  1   210 
+MLE  1   211 
+MLE  1   212 
+MLE  1   213 
+MLE  1   214 
+MLE  1   215 
+MLE  1   216 
+MLE  1   217 
+MLE  1   218 
+MLE  1   219 
+MLE  1   220 
+MLE  1   221 
+MLE  1   222 
+MLE  1   223 
+MLE  1   224 
+MLE  1   225 
+MLE  1   226 
+MLE  1   227 
+MLE  1   228 
+MLE  1   229 
+MLE  1   230 
+MLE  1   231 
+MLE  1   232 
+MLE  1   233 
+MLE  1   234 
+MLE  1   235 
+MLE  1   236 
+MLE  1   237 
+MLE  1   238 
+MLE  1   239 
+MLE  1   240 
+MLE  1   241 
+MLE  1   242 
+MLE  1   243 
+MLE  1   244 
+MLE  1   245 
+MLE  1   246 
+MLE  1   247 
+MLE  1   248 
+MLE  1   249 
+MLE  1   250 
+IM  2   1 
+IM  2   2 
+IM  2   3 
+IM  2   4 
+IM  2   5 
+IM  2   6 
+IM  2   7 
+IM  2   8 
+IM  2   9 
+IM  2   10 
+IM  2   11 
+IM  2   12 
+IM  2   13 
+IM  2   14 
+IM  2   15 
+IM  2   16 
+IM  2   17 
+IM  2   18 
+IM  2   19 
+IM  2   20 
+IM  2   21 
+IM  2   22 
+IM  2   23 
+IM  2   24 
+IM  2   25 
+IM  2   26 
+IM  2   27 
+IM  2   28 
+IM  2   29 
+IM  2   30 
+IM  2   31 
+IM  2   32 
+IM  2   33 
+IM  2   34 
+IM  2   35 
+IM  2   36 
+IM  2   37 
+IM  2   38 
+IM  2   39 
+IM  2   40 
+IM  2   41 
+IM  2   42 
+IM  2   43 
+IM  2   44 
+IM  2   45 
+IM  2   46 
+IM  2   47 
+IM  2   48 
+IM  2   49 
+IM  2   50 
+IM  2   51 
+IM  2   52 
+IM  2   53 
+IM  2   54 
+IM  2   55 
+IM  2   56 
+IM  2   57 
+IM  2   58 
+IM  2   59 
+IM  2   60 
+IM  2   61 
+IM  2   62 
+IM  2   63 
+IM  2   64 
+IM  2   65 
+IM  2   66 
+IM  2   67 
+IM  2   68 
+IM  2   69 
+IM  2   70 
+IM  2   71 
+IM  2   72 
+IM  2   73 
+IM  2   74 
+IM  2   75 
+IM  2   76 
+IM  2   77 
+IM  2   78 
+IM  2   79 
+IM  2   80 
+IM  2   81 
+IM  2   82 
+IM  2   83 
+IM  2   84 
+IM  2   85 
+IM  2   86 
+IM  2   87 
+IM  2   88 
+IM  2   89 
+IM  2   90 
+IM  2   91 
+IM  2   92 
+IM  2   93 
+IM  2   94 
+IM  2   95 
+IM  2   96 
+IM  2   97 
+IM  2   98 
+IM  2   99 
+IM  2   100 
+IM  2   101 
+IM  2   102 
+IM  2   103 
+IM  2   104 
+IM  2   105 
+IM  2   106 
+IM  2   107 
+IM  2   108 
+IM  2   109 
+IM  2   110 
+IM  2   111 
+IM  2   112 
+IM  2   113 
+IM  2   114 
+IM  2   115 
+IM  2   116 
+IM  2   117 
+IM  2   118 
+IM  2   119 
+IM  2   120 
+IM  2   121 
+IM  2   122 
+IM  2   123 
+IM  2   124 
+IM  2   125 
+IM  2   126 
+IM  2   127 
+IM  2   128 
+IM  2   129 
+IM  2   130 
+IM  2   131 
+IM  2   132 
+IM  2   133 
+IM  2   134 
+IM  2   135 
+IM  2   136 
+IM  2   137 
+IM  2   138 
+IM  2   139 
+IM  2   140 
+IM  2   141 
+IM  2   142 
+IM  2   143 
+IM  2   144 
+IM  2   145 
+IM  2   146 
+IM  2   147 
+IM  2   148 
+IM  2   149 
+IM  2   150 
+IM  2   151 
+IM  2   152 
+IM  2   153 
+IM  2   154 
+IM  2   155 
+IM  2   156 
+IM  2   157 
+IM  2   158 
+IM  2   159 
+IM  2   160 
+IM  2   161 
+IM  2   162 
+IM  2   163 
+IM  2   164 
+IM  2   165 
+IM  2   166 
+IM  2   167 
+IM  2   168 
+IM  2   169 
+IM  2   170 
+IM  2   171 
+IM  2   172 
+IM  2   173 
+IM  2   174 
+IM  2   175 
+IM  2   176 
+IM  2   177 
+IM  2   178 
+IM  2   179 
+IM  2   180 
+IM  2   181 
+IM  2   182 
+IM  2   183 
+IM  2   184 
+IM  2   185 
+IM  2   186 
+IM  2   187 
+IM  2   188 
+IM  2   189 
+IM  2   190 
+IM  2   191 
+IM  2   192 
+IM  2   193 
+IM  2   194 
+IM  2   195 
+IM  2   196 
+IM  2   197 
+IM  2   198 
+IM  2   199 
+IM  2   200 
+IM  2   201 
+IM  2   202 
+IM  2   203 
+IM  2   204 
+IM  2   205 
+IM  2   206 
+IM  2   207 
+IM  2   208 
+IM  2   209 
+IM  2   210 
+IM  2   211 
+IM  2   212 
+IM  2   213 
+IM  2   214 
+IM  2   215 
+IM  2   216 
+IM  2   217 
+IM  2   218 
+IM  2   219 
+IM  2   220 
+IM  2   221 
+IM  2   222 
+IM  2   223 
+IM  2   224 
+IM  2   225 
+IM  2   226 
+IM  2   227 
+IM  2   228 
+IM  2   229 
+IM  2   230 
+IM  2   231 
+IM  2   232 
+IM  2   233 
+IM  2   234 
+IM  2   235 
+IM  2   236 
+IM  2   237 
+IM  2   238 
+IM  2   239 
+IM  2   240 
+IM  2   241 
+IM  2   242 
+IM  2   243 
+IM  2   244 
+IM  2   245 
+IM  2   246 
+IM  2   247 
+IM  2   248 
+IM  2   249 
+IM  2   250 
+MLE  2   1 
+MLE  2   2 
+MLE  2   3 
+MLE  2   4 
+MLE  2   5 
+MLE  2   6 
+MLE  2   7 
+MLE  2   8 
+MLE  2   9 
+MLE  2   10 
+MLE  2   11 
+MLE  2   12 
+MLE  2   13 
+MLE  2   14 
+MLE  2   15 
+MLE  2   16 
+MLE  2   17 
+MLE  2   18 
+MLE  2   19 
+MLE  2   20 
+MLE  2   21 
+MLE  2   22 
+MLE  2   23 
+MLE  2   24 
+MLE  2   25 
+MLE  2   26 
+MLE  2   27 
+MLE  2   28 
+MLE  2   29 
+MLE  2   30 
+MLE  2   31 
+MLE  2   32 
+MLE  2   33 
+MLE  2   34 
+MLE  2   35 
+MLE  2   36 
+MLE  2   37 
+MLE  2   38 
+MLE  2   39 
+MLE  2   40 
+MLE  2   41 
+MLE  2   42 
+MLE  2   43 
+MLE  2   44 
+MLE  2   45 
+MLE  2   46 
+MLE  2   47 
+MLE  2   48 
+MLE  2   49 
+MLE  2   50 
+MLE  2   51 
+MLE  2   52 
+MLE  2   53 
+MLE  2   54 
+MLE  2   55 
+MLE  2   56 
+MLE  2   57 
+MLE  2   58 
+MLE  2   59 
+MLE  2   60 
+MLE  2   61 
+MLE  2   62 
+MLE  2   63 
+MLE  2   64 
+MLE  2   65 
+MLE  2   66 
+MLE  2   67 
+MLE  2   68 
+MLE  2   69 
+MLE  2   70 
+MLE  2   71 
+MLE  2   72 
+MLE  2   73 
+MLE  2   74 
+MLE  2   75 
+MLE  2   76 
+MLE  2   77 
+MLE  2   78 
+MLE  2   79 
+MLE  2   80 
+MLE  2   81 
+MLE  2   82 
+MLE  2   83 
+MLE  2   84 
+MLE  2   85 
+MLE  2   86 
+MLE  2   87 
+MLE  2   88 
+MLE  2   89 
+MLE  2   90 
+MLE  2   91 
+MLE  2   92 
+MLE  2   93 
+MLE  2   94 
+MLE  2   95 
+MLE  2   96 
+MLE  2   97 
+MLE  2   98 
+MLE  2   99 
+MLE  2   100 
+MLE  2   101 
+MLE  2   102 
+MLE  2   103 
+MLE  2   104 
+MLE  2   105 
+MLE  2   106 
+MLE  2   107 
+MLE  2   108 
+MLE  2   109 
+MLE  2   110 
+MLE  2   111 
+MLE  2   112 
+MLE  2   113 
+MLE  2   114 
+MLE  2   115 
+MLE  2   116 
+MLE  2   117 
+MLE  2   118 
+MLE  2   119 
+MLE  2   120 
+MLE  2   121 
+MLE  2   122 
+MLE  2   123 
+MLE  2   124 
+MLE  2   125 
+MLE  2   126 
+MLE  2   127 
+MLE  2   128 
+MLE  2   129 
+MLE  2   130 
+MLE  2   131 
+MLE  2   132 
+MLE  2   133 
+MLE  2   134 
+MLE  2   135 
+MLE  2   136 
+MLE  2   137 
+MLE  2   138 
+MLE  2   139 
+MLE  2   140 
+MLE  2   141 
+MLE  2   142 
+MLE  2   143 
+MLE  2   144 
+MLE  2   145 
+MLE  2   146 
+MLE  2   147 
+MLE  2   148 
+MLE  2   149 
+MLE  2   150 
+MLE  2   151 
+MLE  2   152 
+MLE  2   153 
+MLE  2   154 
+MLE  2   155 
+MLE  2   156 
+MLE  2   157 
+MLE  2   158 
+MLE  2   159 
+MLE  2   160 
+MLE  2   161 
+MLE  2   162 
+MLE  2   163 
+MLE  2   164 
+MLE  2   165 
+MLE  2   166 
+MLE  2   167 
+MLE  2   168 
+MLE  2   169 
+MLE  2   170 
+MLE  2   171 
+MLE  2   172 
+MLE  2   173 
+MLE  2   174 
+MLE  2   175 
+MLE  2   176 
+MLE  2   177 
+MLE  2   178 
+MLE  2   179 
+MLE  2   180 
+MLE  2   181 
+MLE  2   182 
+MLE  2   183 
+MLE  2   184 
+MLE  2   185 
+MLE  2   186 
+MLE  2   187 
+MLE  2   188 
+MLE  2   189 
+MLE  2   190 
+MLE  2   191 
+MLE  2   192 
+MLE  2   193 
+MLE  2   194 
+MLE  2   195 
+MLE  2   196 
+MLE  2   197 
+MLE  2   198 
+MLE  2   199 
+MLE  2   200 
+MLE  2   201 
+MLE  2   202 
+MLE  2   203 
+MLE  2   204 
+MLE  2   205 
+MLE  2   206 
+MLE  2   207 
+MLE  2   208 
+MLE  2   209 
+MLE  2   210 
+MLE  2   211 
+MLE  2   212 
+MLE  2   213 
+MLE  2   214 
+MLE  2   215 
+MLE  2   216 
+MLE  2   217 
+MLE  2   218 
+MLE  2   219 
+MLE  2   220 
+MLE  2   221 
+MLE  2   222 
+MLE  2   223 
+MLE  2   224 
+MLE  2   225 
+MLE  2   226 
+MLE  2   227 
+MLE  2   228 
+MLE  2   229 
+MLE  2   230 
+MLE  2   231 
+MLE  2   232 
+MLE  2   233 
+MLE  2   234 
+MLE  2   235 
+MLE  2   236 
+MLE  2   237 
+MLE  2   238 
+MLE  2   239 
+MLE  2   240 
+MLE  2   241 
+MLE  2   242 
+MLE  2   243 
+MLE  2   244 
+MLE  2   245 
+MLE  2   246 
+MLE  2   247 
+MLE  2   248 
+MLE  2   249 
+MLE  2   250 
+IM  3   1 
+IM  3   2 
+IM  3   3 
+IM  3   4 
+IM  3   5 
+IM  3   6 
+IM  3   7 
+IM  3   8 
+IM  3   9 
+IM  3   10 
+IM  3   11 
+IM  3   12 
+IM  3   13 
+IM  3   14 
+IM  3   15 
+IM  3   16 
+IM  3   17 
+IM  3   18 
+IM  3   19 
+IM  3   20 
+IM  3   21 
+IM  3   22 
+IM  3   23 
+IM  3   24 
+IM  3   25 
+IM  3   26 
+IM  3   27 
+IM  3   28 
+IM  3   29 
+IM  3   30 
+IM  3   31 
+IM  3   32 
+IM  3   33 
+IM  3   34 
+IM  3   35 
+IM  3   36 
+IM  3   37 
+IM  3   38 
+IM  3   39 
+IM  3   40 
+IM  3   41 
+IM  3   42 
+IM  3   43 
+IM  3   44 
+IM  3   45 
+IM  3   46 
+IM  3   47 
+IM  3   48 
+IM  3   49 
+IM  3   50 
+IM  3   51 
+IM  3   52 
+IM  3   53 
+IM  3   54 
+IM  3   55 
+IM  3   56 
+IM  3   57 
+IM  3   58 
+IM  3   59 
+IM  3   60 
+IM  3   61 
+IM  3   62 
+IM  3   63 
+IM  3   64 
+IM  3   65 
+IM  3   66 
+IM  3   67 
+IM  3   68 
+IM  3   69 
+IM  3   70 
+IM  3   71 
+IM  3   72 
+IM  3   73 
+IM  3   74 
+IM  3   75 
+IM  3   76 
+IM  3   77 
+IM  3   78 
+IM  3   79 
+IM  3   80 
+IM  3   81 
+IM  3   82 
+IM  3   83 
+IM  3   84 
+IM  3   85 
+IM  3   86 
+IM  3   87 
+IM  3   88 
+IM  3   89 
+IM  3   90 
+IM  3   91 
+IM  3   92 
+IM  3   93 
+IM  3   94 
+IM  3   95 
+IM  3   96 
+IM  3   97 
+IM  3   98 
+IM  3   99 
+IM  3   100 
+IM  3   101 
+IM  3   102 
+IM  3   103 
+IM  3   104 
+IM  3   105 
+IM  3   106 
+IM  3   107 
+IM  3   108 
+IM  3   109 
+IM  3   110 
+IM  3   111 
+IM  3   112 
+IM  3   113 
+IM  3   114 
+IM  3   115 
+IM  3   116 
+IM  3   117 
+IM  3   118 
+IM  3   119 
+IM  3   120 
+IM  3   121 
+IM  3   122 
+IM  3   123 
+IM  3   124 
+IM  3   125 
+IM  3   126 
+IM  3   127 
+IM  3   128 
+IM  3   129 
+IM  3   130 
+IM  3   131 
+IM  3   132 
+IM  3   133 
+IM  3   134 
+IM  3   135 
+IM  3   136 
+IM  3   137 
+IM  3   138 
+IM  3   139 
+IM  3   140 
+IM  3   141 
+IM  3   142 
+IM  3   143 
+IM  3   144 
+IM  3   145 
+IM  3   146 
+IM  3   147 
+IM  3   148 
+IM  3   149 
+IM  3   150 
+IM  3   151 
+IM  3   152 
+IM  3   153 
+IM  3   154 
+IM  3   155 
+IM  3   156 
+IM  3   157 
+IM  3   158 
+IM  3   159 
+IM  3   160 
+IM  3   161 
+IM  3   162 
+IM  3   163 
+IM  3   164 
+IM  3   165 
+IM  3   166 
+IM  3   167 
+IM  3   168 
+IM  3   169 
+IM  3   170 
+IM  3   171 
+IM  3   172 
+IM  3   173 
+IM  3   174 
+IM  3   175 
+IM  3   176 
+IM  3   177 
+IM  3   178 
+IM  3   179 
+IM  3   180 
+IM  3   181 
+IM  3   182 
+IM  3   183 
+IM  3   184 
+IM  3   185 
+IM  3   186 
+IM  3   187 
+IM  3   188 
+IM  3   189 
+IM  3   190 
+IM  3   191 
+IM  3   192 
+IM  3   193 
+IM  3   194 
+IM  3   195 
+IM  3   196 
+IM  3   197 
+IM  3   198 
+IM  3   199 
+IM  3   200 
+IM  3   201 
+IM  3   202 
+IM  3   203 
+IM  3   204 
+IM  3   205 
+IM  3   206 
+IM  3   207 
+IM  3   208 
+IM  3   209 
+IM  3   210 
+IM  3   211 
+IM  3   212 
+IM  3   213 
+IM  3   214 
+IM  3   215 
+IM  3   216 
+IM  3   217 
+IM  3   218 
+IM  3   219 
+IM  3   220 
+IM  3   221 
+IM  3   222 
+IM  3   223 
+IM  3   224 
+IM  3   225 
+IM  3   226 
+IM  3   227 
+IM  3   228 
+IM  3   229 
+IM  3   230 
+IM  3   231 
+IM  3   232 
+IM  3   233 
+IM  3   234 
+IM  3   235 
+IM  3   236 
+IM  3   237 
+IM  3   238 
+IM  3   239 
+IM  3   240 
+IM  3   241 
+IM  3   242 
+IM  3   243 
+IM  3   244 
+IM  3   245 
+IM  3   246 
+IM  3   247 
+IM  3   248 
+IM  3   249 
+IM  3   250 
+MLE  3   1 
+MLE  3   2 
+MLE  3   3 
+MLE  3   4 
+MLE  3   5 
+MLE  3   6 
+MLE  3   7 
+MLE  3   8 
+MLE  3   9 
+MLE  3   10 
+MLE  3   11 
+MLE  3   12 
+MLE  3   13 
+MLE  3   14 
+MLE  3   15 
+MLE  3   16 
+MLE  3   17 
+MLE  3   18 
+MLE  3   19 
+MLE  3   20 
+MLE  3   21 
+MLE  3   22 
+MLE  3   23 
+MLE  3   24 
+MLE  3   25 
+MLE  3   26 
+MLE  3   27 
+MLE  3   28 
+MLE  3   29 
+MLE  3   30 
+MLE  3   31 
+MLE  3   32 
+MLE  3   33 
+MLE  3   34 
+MLE  3   35 
+MLE  3   36 
+MLE  3   37 
+MLE  3   38 
+MLE  3   39 
+MLE  3   40 
+MLE  3   41 
+MLE  3   42 
+MLE  3   43 
+MLE  3   44 
+MLE  3   45 
+MLE  3   46 
+MLE  3   47 
+MLE  3   48 
+MLE  3   49 
+MLE  3   50 
+MLE  3   51 
+MLE  3   52 
+MLE  3   53 
+MLE  3   54 
+MLE  3   55 
+MLE  3   56 
+MLE  3   57 
+MLE  3   58 
+MLE  3   59 
+MLE  3   60 
+MLE  3   61 
+MLE  3   62 
+MLE  3   63 
+MLE  3   64 
+MLE  3   65 
+MLE  3   66 
+MLE  3   67 
+MLE  3   68 
+MLE  3   69 
+MLE  3   70 
+MLE  3   71 
+MLE  3   72 
+MLE  3   73 
+MLE  3   74 
+MLE  3   75 
+MLE  3   76 
+MLE  3   77 
+MLE  3   78 
+MLE  3   79 
+MLE  3   80 
+MLE  3   81 
+MLE  3   82 
+MLE  3   83 
+MLE  3   84 
+MLE  3   85 
+MLE  3   86 
+MLE  3   87 
+MLE  3   88 
+MLE  3   89 
+MLE  3   90 
+MLE  3   91 
+MLE  3   92 
+MLE  3   93 
+MLE  3   94 
+MLE  3   95 
+MLE  3   96 
+MLE  3   97 
+MLE  3   98 
+MLE  3   99 
+MLE  3   100 
+MLE  3   101 
+MLE  3   102 
+MLE  3   103 
+MLE  3   104 
+MLE  3   105 
+MLE  3   106 
+MLE  3   107 
+MLE  3   108 
+MLE  3   109 
+MLE  3   110 
+MLE  3   111 
+MLE  3   112 
+MLE  3   113 
+MLE  3   114 
+MLE  3   115 
+MLE  3   116 
+MLE  3   117 
+MLE  3   118 
+MLE  3   119 
+MLE  3   120 
+MLE  3   121 
+MLE  3   122 
+MLE  3   123 
+MLE  3   124 
+MLE  3   125 
+MLE  3   126 
+MLE  3   127 
+MLE  3   128 
+MLE  3   129 
+MLE  3   130 
+MLE  3   131 
+MLE  3   132 
+MLE  3   133 
+MLE  3   134 
+MLE  3   135 
+MLE  3   136 
+MLE  3   137 
+MLE  3   138 
+MLE  3   139 
+MLE  3   140 
+MLE  3   141 
+MLE  3   142 
+MLE  3   143 
+MLE  3   144 
+MLE  3   145 
+MLE  3   146 
+MLE  3   147 
+MLE  3   148 
+MLE  3   149 
+MLE  3   150 
+MLE  3   151 
+MLE  3   152 
+MLE  3   153 
+MLE  3   154 
+MLE  3   155 
+MLE  3   156 
+MLE  3   157 
+MLE  3   158 
+MLE  3   159 
+MLE  3   160 
+MLE  3   161 
+MLE  3   162 
+MLE  3   163 
+MLE  3   164 
+MLE  3   165 
+MLE  3   166 
+MLE  3   167 
+MLE  3   168 
+MLE  3   169 
+MLE  3   170 
+MLE  3   171 
+MLE  3   172 
+MLE  3   173 
+MLE  3   174 
+MLE  3   175 
+MLE  3   176 
+MLE  3   177 
+MLE  3   178 
+MLE  3   179 
+MLE  3   180 
+MLE  3   181 
+MLE  3   182 
+MLE  3   183 
+MLE  3   184 
+MLE  3   185 
+MLE  3   186 
+MLE  3   187 
+MLE  3   188 
+MLE  3   189 
+MLE  3   190 
+MLE  3   191 
+MLE  3   192 
+MLE  3   193 
+MLE  3   194 
+MLE  3   195 
+MLE  3   196 
+MLE  3   197 
+MLE  3   198 
+MLE  3   199 
+MLE  3   200 
+MLE  3   201 
+MLE  3   202 
+MLE  3   203 
+MLE  3   204 
+MLE  3   205 
+MLE  3   206 
+MLE  3   207 
+MLE  3   208 
+MLE  3   209 
+MLE  3   210 
+MLE  3   211 
+MLE  3   212 
+MLE  3   213 
+MLE  3   214 
+MLE  3   215 
+MLE  3   216 
+MLE  3   217 
+MLE  3   218 
+MLE  3   219 
+MLE  3   220 
+MLE  3   221 
+MLE  3   222 
+MLE  3   223 
+MLE  3   224 
+MLE  3   225 
+MLE  3   226 
+MLE  3   227 
+MLE  3   228 
+MLE  3   229 
+MLE  3   230 
+MLE  3   231 
+MLE  3   232 
+MLE  3   233 
+MLE  3   234 
+MLE  3   235 
+MLE  3   236 
+MLE  3   237 
+MLE  3   238 
+MLE  3   239 
+MLE  3   240 
+MLE  3   241 
+MLE  3   242 
+MLE  3   243 
+MLE  3   244 
+MLE  3   245 
+MLE  3   246 
+MLE  3   247 
+MLE  3   248 
+MLE  3   249 
+MLE  3   250 
+> 
+> 
+> ## Reorganise
+> sig <- 0
+> IM <- do.call(rbind, 
++   lapply(res, function(rr) {
++     b <- 0
++     rr <- do.call(rbind,
++       lapply(rr, function(r) {
++         b <<- b + 1
++         cbind(r, b = b)
++       }))
++     sig <<- sig + 1
++     cbind(rr, sigma = sigmas[sig])
++   }))
+> 
+> sig <- 0
+> MLES <- do.call(rbind, 
++   lapply(res_MLE, function(rr) {
++     b <- 0
++     rr <- do.call(rbind,
++       lapply(rr, function(r) {
++         b <<- b + 1
++         cbind(r, b = b)
++       }))
++     sig <<- sig + 1
++     cbind(rr, sigma = sigmas[sig])
++   }))
+> names(MLES) <- c(paste0("x", 1:3), "jerr", "n", "b", "sigma")
+> save(IM, MLES, file = "IMdata.RData")
+> load("IMdata.RData")
+> 
+> # Summarise over replicates
+> IM <- melt(IM, id.vars = c("bwd", "n", "b", "sigma"))
+> IM <- ddply(IM, .(bwd, n, sigma, variable), summarise, 
++   median = median(value),
++   lo = quantile(value, probs = .05),
++   hi = quantile(value, probs = .95))
+> 
+> MLES <- subset(MLES, jerr == 0)
+> MLES <- MLES[, setdiff(names(MLES), "jerr")]
+> MLES <- melt(MLES, id.vars = c("n", "b", "sigma"))
+> MLES <- ddply(MLES, .(n, sigma, variable), summarise, 
++   median = median(value),
++   lo = quantile(value, probs = .05),
++   hi = quantile(value, probs = .95))
+> 
+> # Factor stuff
+> IM$n <- as.factor(IM$n)
+> MLES$n <- as.factor(MLES$n)
+> 
+> IM$sigma <- as.factor(IM$sigma)
+> levels(IM$sigma) <- paste0("sigma: ", levels(IM$sigma))
+> MLES$sigma <- as.factor(MLES$sigma)
+> levels(MLES$sigma) <- paste0("sigma: ", levels(MLES$sigma))
+> 
+> IM$variable <- as.factor(IM$variable)
+> levels(IM$variable) <- c("k[f]", "k[r]", "k[cat]")
+> MLES$variable <- as.factor(MLES$variable)
+> levels(MLES$variable) <- c("k[f]", "k[r]", "k[cat]")
+> 
+> 
+> MLES$bwd <- -0.1
+> pd <- position_dodge(0.05)
+> 
+> pdf(file = "../figures/im.pdf", width = 8, height = 8)
+> gg <- ggplot(IM, aes(x = bwd, y = median, color = n)) + geom_point(position = pd) + geom_line(position = pd) +
++   facet_grid(variable ~ sigma,
++     labeller = labeller(sigma = label_parsed, variable = label_parsed),
++     scales = "free_y") + ylab("") +
++   ggplot_theme + 
++   xlab("Bandwidth") +
++   geom_errorbar(mapping = aes(x = bwd, ymin = lo, ymax = hi, color = n), width = .1, position = pd) + 
++   geom_hline(data = data.frame(value = k, variable = as.factor(levels(IM$variable))),
++     mapping = aes(yintercept = value)) +
++   geom_errorbar(data = MLES, mapping = aes(x = bwd, ymin = lo, ymax = hi, color = n), 
++     width = .1, position = pd, linetype = "longdash") +
++   geom_point(data = MLES, mapping = aes(x = bwd, y = median, color = n), position = pd)
+> print(gg)
+> dev.off()
+pdf 
+  2 
+> 
+> 
+> 
+> 
+> proc.time()
+   user  system elapsed 
+543.871   1.156 545.606 
