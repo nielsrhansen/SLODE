@@ -11,7 +11,7 @@ packages used within it. This is most easily done by installing the
 This auxilary package is also used for the simulations.
 
 Some of the simulations are computationally heavy, in particular Study B
-and Study E. For the paper, they were run on a 128 core server using multiple
+and Study E. For the paper, they were run on a 64 core server using multiple
 cores. 
 
 The following gives the commands for running the scripts as R batch processes
