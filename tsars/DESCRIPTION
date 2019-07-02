@@ -1,0 +1,23 @@
+Package: tsars
+Type: Package
+Title: Topological Sensitivity Analysis for Reaction Systems
+Version: 0.0.2.0001
+Authors@R: person("Frederik Riis", "Mikkelsen", email = "frm@math.ku.dk", role = c("aut", "cre"))
+Maintainer: <frederikrmikkelsen@gmail.dk>
+Description: Tools for performing topological sensitivity analysis (as described in Babtie et al., PNAS, 2014) 
+    for mass action kinetics type of ode systems.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+Imports:
+    Matrix (>= 1.2-6),
+    magrittr (>= 1.5),
+    nnls (>= 1.4),
+    Rcpp (>= 0.12.5),
+    RcppArmadillo (>= 0.7.6)
+Depends:
+    R (>= 3.3.1)
+LinkingTo: Rcpp, RcppArmadillo
+RoxygenNote: 6.0.1
+Suggests: testthat
+

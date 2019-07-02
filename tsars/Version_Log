@@ -1,0 +1,32 @@
+Version 0.0.2.0001
+------------------
+  * Created exact best subset selection (bss)
+
+Version 0.0.2.0000
+------------------
+  * Reworked tsars such that it now searches among reactions and not parents.
+    - gpfit not changed
+    - mak not changed
+    - parents is deprecated
+    - tsars main function rewritten
+
+
+
+
+
+Version 0.0.1.0001
+------------------
+  * Made tsars-function that applies fit_models.
+  * magrittr now in Imports.
+
+
+Version 0.0.1.0000
+------------------
+  * Initialised package of tsa for mak. Thought it would be easier to keep stuff in a package.
+  * First function for export: gpfit, which fits a GP to data.
+  * Wrote formal test for gpfit.
+  * join's, find_reactions and mak_enzyme made for mak objects. Also tests.
+  * parents function, which systematically writes up parents set.
+  * Created X_full making the design matrix for gm.
+  * Created fit_models for "fast" fitting multiple submodels in linear model. First implementation in Rcpp still exists, but was scrabbed, as it does not search for non-negative solutions. Second implementation relying on 'nnls' now in use.
+  * fit_models now include pos_coef option to switch between 'nnls' and 'lm.fit'.
