@@ -28,5 +28,5 @@ devtools::install_github("nielsrhansen/SLODE/tsars", dependencies = TRUE)
 
 To run the R scripts, first install `tsars` as descriped above, then 
 clone the repository and follow the instructions 
-from the [Readme](SimStudies/Readme.ms) file in the SimStudies directory. 
+from the [Readme](SimStudies/README.md) file in the SimStudies directory. 
 

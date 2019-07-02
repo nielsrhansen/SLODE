@@ -1,27 +1,69 @@
-# How to do
+# How to run the scripts
 
-All simulation studies are to be run from their respective folders, i.e., study A is to run from SimA_IM as its working dir.
+All simulation studies are to be run from their respective folders, 
+i.e., study A is to run from SimA_IM as its working dir.
 
-All figures used in paper will be deposited in figures folder.
+All figures from the paper will be deposited in a figures folder.
 
-Before you start on a simulation study, make sure you have installed the packages used within it.
+Before you run a simulation study, make sure you have installed the 
+packages used within it. This is most easily done by installing the 
+[`tsars` package](https://github.com/nielsrhansen/SLODE) first. 
+This auxilary package is also used for some of the simulations.
 
-Also some studies uses the auxilary package 'tsars'. You need to install it from source (see parent folder).
+Some of the simulations are computationally heavy, in particular Study B
+and Study E. For the paper, they were run on a 128 core server using multiple
+cores. 
+
+The following gives the commands for running the scripts as R batch processes
+on a Linux server supposing that you start from the SimStudies directory.
 
 ## Sim A:
-run test_IM.R
+
+```
+cd SimA_IM
+R CMD BATCH test_IM.R &
+cd ..
+```
 
 ## Sim B:
-run main.R
-thereafter run R/read_results.R
+
+```
+cd SimB_MAK
+R CMD BATCH main.R &
+R CMD BATCH R/read_results.R &
+cd ..
+```
 
 ## Sim D
-run main.R
+
+```
+cd SimD_GRADE
+R CMD BATCH main.R &
+cd ..
+```
 
 ## Sim E
-run main.R
-thereafter run read_results.R
+
+```
+cd SimE_Glycolysis
+R CMD BATCH main.R &
+R CMD BATCH read_results.R &
+cd ..
+```
 
 ## Sim F
-run main.R
+
+```
+cd SimF_EnvZOmpR
+R CMD BATCH main.R &
+cd ..
+```
+
+
+
+
+
+
+
+
 
