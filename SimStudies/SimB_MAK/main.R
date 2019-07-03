@@ -148,7 +148,7 @@ registerDoParallel(cl)
 res <- foreach(i = seq_len(nrow(sim_parameters)), .packages = c('episode', 'magrittr', 'tsars')) %dopar% {
   sim_param <- sim_parameters[i, ]
 
-  log_dir <- paste0("Log/", simname, "/log_", i)
+  log_dir <- paste0("Log/log_", i)
   cat(paste0("Started simulation setup ", i, "\n"), file = log_dir)
   
   # Extract all the randomness:
@@ -211,7 +211,7 @@ res <- foreach(i = seq_len(nrow(sim_parameters)), .packages = c('episode', 'magr
   
 
   ## Save the result just in case
-  save(to.res, file = paste0("Results/", simname, "/res_", i, ".RData"))
+  save(to.res, file = paste0("Results/res_", i, ".RData"))
   
   ## Return
   to.res
