@@ -144,7 +144,7 @@ print(gp)
 dev.off()
 
 
-## Recorvery
+## Recovery
 sc_full <- cbind(1, 1, 
                  !apply(cbind(A[, c(1)], (B - A)[, c(1)]) != 0, 1, any),
                  !apply(cbind(A[, c(2)], (B - A)[, c(2)]) != 0, 1, any))
