@@ -162,9 +162,9 @@ Loading required package: parallel
 > 
 > ## Comp. setups ##
 > cl <- makeCluster(min(3, nrow(sim_parameters)), outfile = "")
-starting worker pid=6251 on localhost:11296 at 09:36:05.979
-starting worker pid=6260 on localhost:11296 at 09:36:06.285
-starting worker pid=6269 on localhost:11296 at 09:36:06.588
+starting worker pid=24943 on localhost:11928 at 13:47:50.107
+starting worker pid=24953 on localhost:11928 at 13:47:50.423
+starting worker pid=24962 on localhost:11928 at 13:47:50.752
 > registerDoParallel(cl)
 > 
 > # i <- 1
@@ -172,7 +172,7 @@ starting worker pid=6269 on localhost:11296 at 09:36:06.588
 > res <- foreach(i = seq_len(nrow(sim_parameters)), .packages = c('episode', 'magrittr', 'tsars')) %dopar% {
 +   sim_param <- sim_parameters[i, ]
 + 
-+   log_dir <- paste0("Log/", simname, "/log_", i)
++   log_dir <- paste0("Log/log_", i)
 +   cat(paste0("Started simulation setup ", i, "\n"), file = log_dir)
 +   
 +   # Extract all the randomness:
@@ -235,23 +235,8 @@ starting worker pid=6269 on localhost:11296 at 09:36:06.588
 +   
 + 
 +   ## Save the result just in case
-+   save(to.res, file = paste0("Results/", simname, "/res_", i, ".RData"))
++   save(to.res, file = paste0("Results/res_", i, ".RData"))
 +   
 +   ## Return
 +   to.res
 + }
-Error in { : task 1 failed - "cannot open the connection"
-Calls: %dopar% -> <Anonymous>
-Execution halted
-Error in unserialize(node$con) : error reading from connection
-Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
-In addition: There were 18 warnings (use warnings() to see them)
-Execution halted
-Error in unserialize(node$con) : error reading from connection
-Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
-In addition: There were 18 warnings (use warnings() to see them)
-Execution halted
-Error in unserialize(node$con) : error reading from connection
-Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
-In addition: There were 18 warnings (use warnings() to see them)
-Execution halted
