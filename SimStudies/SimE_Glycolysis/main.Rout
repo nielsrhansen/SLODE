@@ -511,3 +511,14 @@ Loaded glmnet 2.0-18
 
 Loaded glmnet 2.0-18
 
+> 
+> 
+> stopCluster(cl)
+> 
+> 
+> 
+> 
+> 
+> proc.time()
+      user     system    elapsed 
+    27.216     12.051 436870.961 

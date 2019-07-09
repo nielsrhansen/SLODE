@@ -240,3 +240,24 @@ starting worker pid=24962 on localhost:11928 at 13:47:50.752
 +   ## Return
 +   to.res
 + }
+> 
+> 
+> 
+> 
+> 
+> 
+> proc.time()
+      user     system    elapsed 
+   123.002      2.119 481413.314 
+Error in unserialize(node$con) : error reading from connection
+Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Execution halted
+Error in unserialize(node$con) : error reading from connection
+Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Execution halted
+Error in unserialize(node$con) : error reading from connection
+Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Execution halted
